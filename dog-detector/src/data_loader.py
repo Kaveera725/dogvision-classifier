@@ -1,16 +1,32 @@
 import tensorflow as tf
+import os
 from pathlib import Path
 
 def load_data(dataset_dir="dataset"):
     """
     Loads images from the dataset directory, resizes them to 128x128,
-    splits them into 80% training and 20% validation, and normalizes
-    pixels to 0-1.
+    and splits them into 80% training and 20% validation.
+    No augmentation or normalization is applied here because they are 
+    handled directly within the model architecture.
     """
     image_size = (128, 128)
     batch_size = 32
     seed = 42
-
+    
+    cat_dir = Path(dataset_dir) / "cat"
+    dog_dir = Path(dataset_dir) / "dog"
+    
+    # Check the dataset before training
+    if not cat_dir.exists() or not dog_dir.exists():
+        raise ValueError(f"Dataset directories missing. Ensure {cat_dir} and {dog_dir} exist.")
+        
+    # Check if they contain images
+    cat_images = list(cat_dir.glob("*.*"))
+    dog_images = list(dog_dir.glob("*.*"))
+    
+    if len(cat_images) == 0 or len(dog_images) == 0:
+        raise ValueError("One or both dataset directories are empty.")
+    
     print(f"Loading datasets from '{dataset_dir}'...")
     
     # Create training dataset
@@ -35,30 +51,8 @@ def load_data(dataset_dir="dataset"):
 
     class_names = train_dataset.class_names
 
-    # Check for expected class names
     if set(class_names) != {'cat', 'dog'}:
-        print(f"Warning: Expected classes ['cat', 'dog'], but found {class_names}")
-
-    # Data Augmentation (Only for training dataset)
-    data_augmentation = tf.keras.Sequential([
-        tf.keras.layers.RandomFlip("horizontal"),
-        tf.keras.layers.RandomRotation(0.1),
-        tf.keras.layers.RandomZoom(0.1),
-        tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1)
-    ])
-
-    # Normalize pixels from 0-255 to 0-1
-    normalization_layer = tf.keras.layers.Rescaling(1./255)
-    
-    train_dataset = train_dataset.map(
-        lambda x, y: (normalization_layer(data_augmentation(x, training=True)), y), 
-        num_parallel_calls=tf.data.AUTOTUNE
-    )
-    
-    validation_dataset = validation_dataset.map(
-        lambda x, y: (normalization_layer(x), y), 
-        num_parallel_calls=tf.data.AUTOTUNE
-    )
+        raise ValueError(f"Expected classes ['cat', 'dog'], but found {class_names}")
 
     # Optimize pipeline performance
     train_dataset = train_dataset.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
@@ -66,14 +60,8 @@ def load_data(dataset_dir="dataset"):
 
     # Print summary
     print(f"\nClasses: {class_names}")
-    
-    # tf.keras.utils.image_dataset_from_directory adds file_paths attribute
-    if hasattr(train_dataset, 'file_paths'):
-        print(f"Training images: {len(train_dataset.file_paths)}")
-        print(f"Validation images: {len(validation_dataset.file_paths)}")
-    else:
-        print(f"Training batches: {len(train_dataset)}")
-        print(f"Validation batches: {len(validation_dataset)}")
+    print(f"Training batches: {len(train_dataset)}")
+    print(f"Validation batches: {len(validation_dataset)}")
         
     return train_dataset, validation_dataset, class_names
 
