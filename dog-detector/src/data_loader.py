@@ -39,11 +39,19 @@ def load_data(dataset_dir="dataset"):
     if set(class_names) != {'cat', 'dog'}:
         print(f"Warning: Expected classes ['cat', 'dog'], but found {class_names}")
 
+    # Data Augmentation (Only for training dataset)
+    data_augmentation = tf.keras.Sequential([
+        tf.keras.layers.RandomFlip("horizontal"),
+        tf.keras.layers.RandomRotation(0.1),
+        tf.keras.layers.RandomZoom(0.1),
+        tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1)
+    ])
+
     # Normalize pixels from 0-255 to 0-1
     normalization_layer = tf.keras.layers.Rescaling(1./255)
     
     train_dataset = train_dataset.map(
-        lambda x, y: (normalization_layer(x), y), 
+        lambda x, y: (normalization_layer(data_augmentation(x, training=True)), y), 
         num_parallel_calls=tf.data.AUTOTUNE
     )
     
