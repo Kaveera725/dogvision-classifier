@@ -2,7 +2,7 @@ import tensorflow as tf
 
 def build_model(input_shape=(128, 128, 3)):
     """
-    Builds and compiles the CNN model for Cat vs Dog classification.
+    Builds and compiles the CNN model for Cat vs Dog classification using Transfer Learning (MobileNetV2).
     """
     
     # Data Augmentation layer
@@ -13,36 +13,38 @@ def build_model(input_shape=(128, 128, 3)):
         tf.keras.layers.RandomTranslation(0.1, 0.1)
     ], name="data_augmentation")
 
+    # Load pre-trained MobileNetV2 base (without the top classification layer)
+    base_model = tf.keras.applications.MobileNetV2(
+        input_shape=input_shape,
+        include_top=False,
+        weights='imagenet'
+    )
+    
+    # Freeze the base model so we don't destroy its pre-trained weights during initial training
+    base_model.trainable = False
+
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=input_shape),
         
         # Preprocessing layers
         data_augmentation,
-        tf.keras.layers.Rescaling(1./255, name="rescaling"),
+        # MobileNetV2 expects input pixels to be between -1 and 1
+        tf.keras.layers.Rescaling(1./127.5, offset=-1, name="rescaling"),
         
-        # First Convolutional Block
-        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', name="conv2d_1"),
-        tf.keras.layers.MaxPooling2D((2, 2), name="maxpool_1"),
+        # The pre-trained base model
+        base_model,
         
-        # Second Convolutional Block
-        tf.keras.layers.Conv2D(64, (3, 3), activation='relu', name="conv2d_2"),
-        tf.keras.layers.MaxPooling2D((2, 2), name="maxpool_2"),
+        # Our custom classification head
+        tf.keras.layers.GlobalAveragePooling2D(name="global_average_pooling"),
+        tf.keras.layers.Dropout(0.2, name="dropout"),
         
-        # Third Convolutional Block
-        tf.keras.layers.Conv2D(128, (3, 3), activation='relu', name="conv2d_3"),
-        tf.keras.layers.MaxPooling2D((2, 2), name="maxpool_3"),
-        
-        # Flatten and Dense Layers
-        tf.keras.layers.Flatten(name="flatten"),
-        tf.keras.layers.Dense(128, activation='relu', name="dense_1"),
-        tf.keras.layers.Dropout(0.5, name="dropout"),
-        
-        # Output Layer (Binary Classification)
+        # Output Layer (Binary Classification: 0 for Cat, 1 for Dog)
         tf.keras.layers.Dense(1, activation='sigmoid', name="output")
     ])
 
+    # Compile the model with a lower learning rate for transfer learning
     model.compile(
-        optimizer='adam',
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
         loss='binary_crossentropy',
         metrics=['accuracy']
     )

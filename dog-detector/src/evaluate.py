@@ -66,10 +66,22 @@ def check_data_integrity():
 
     print("Data integrity checks passed.")
 
-def evaluate():
+import sys
+
+def evaluate(model_path):
     check_data_integrity()
     
-    model_path = "models/cat_dog_classifier.keras"
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model not found at {model_path}")
+        
+    model_name = Path(model_path).stem
+    if model_name.endswith("_cat_dog_classifier"):
+        prefix = model_name.replace("_cat_dog_classifier", "") + "_"
+    elif model_name == "cat_dog_classifier":
+        prefix = "baseline_"
+    else:
+        prefix = model_name + "_"
+    
     test_dir = "test_images"
     image_size = (128, 128)
     batch_size = 32
@@ -119,9 +131,9 @@ def evaluate():
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
     fig, ax = plt.subplots(figsize=(6,5))
     disp.plot(ax=ax, cmap="Blues", values_format="d")
-    plt.title("Confusion Matrix")
+    plt.title(f"Confusion Matrix ({model_name})")
     os.makedirs("results", exist_ok=True)
-    plt.savefig("results/confusion_matrix.png")
+    plt.savefig(f"results/{prefix}confusion_matrix.png")
     plt.close()
 
     # Classification report
@@ -129,7 +141,7 @@ def evaluate():
     print(classification_report(y_true, y_pred, target_names=class_names, digits=4))
 
     # Analyze mistakes
-    misclassified_dir = Path("results/misclassified")
+    misclassified_dir = Path(f"results/{prefix}misclassified")
     if misclassified_dir.exists():
         shutil.rmtree(misclassified_dir)
     os.makedirs(misclassified_dir)
@@ -164,12 +176,12 @@ def evaluate():
             correct_count += 1
 
     if misclassified_records:
-        with open("results/misclassified.csv", "w", newline='') as f:
+        with open(f"results/{prefix}misclassified.csv", "w", newline='') as f:
             writer = csv.DictWriter(f, fieldnames=["filename", "actual", "predicted", "confidence"])
             writer.writeheader()
             writer.writerows(misclassified_records)
     else:
-        with open("results/misclassified.csv", "w", newline='') as f:
+        with open(f"results/{prefix}misclassified.csv", "w", newline='') as f:
             writer = csv.DictWriter(f, fieldnames=["filename", "actual", "predicted", "confidence"])
             writer.writeheader()
 
@@ -219,4 +231,8 @@ def evaluate():
     print(f"Conclusion: {conclusion}")
 
 if __name__ == "__main__":
-    evaluate()
+    if len(sys.argv) > 1:
+        model_path = sys.argv[1]
+    else:
+        model_path = "models/cat_dog_classifier.keras"
+    evaluate(model_path)

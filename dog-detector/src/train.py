@@ -41,7 +41,7 @@ def train():
         verbose=1
     )
 
-    checkpoint_path = "models/cat_dog_classifier.keras"
+    checkpoint_path = "models/mobilenetv2_cat_dog_classifier.keras"
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_path,
         monitor='val_loss',

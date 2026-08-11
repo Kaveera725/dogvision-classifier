@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat vs Dog AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="background-animation"></div>
+    <div class="container glass-panel">
+        <header>
+            <h1>AI Vision</h1>
+            <p>Upload an image to see if it's a Cat or a Dog.</p>
+        </header>
+        
+        <main>
+            <form id="uploadForm">
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" name="file" accept="image/*" hidden>
+                    <div class="upload-content">
+                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span>Drag & Drop your image here</span>
+                        <span class="text-small">or click to browse</span>
+                    </div>
+                </div>
+            </form>
+
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <p>Analyzing image...</p>
+            </div>
+
+            <div id="resultCard" class="hidden result-panel glass-panel">
+                <div class="result-image-container">
+                    <img id="previewImage" src="" alt="Uploaded image">
+                </div>
+                <div class="result-details">
+                    <h2 id="predictionResult">DOG</h2>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidenceFill"></div>
+                    </div>
+                    <p id="confidenceText">98.5% Confidence</p>
+                    <button class="btn-primary" id="resetBtn">Try Another</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadForm = document.getElementById('uploadForm');
+        const loading = document.getElementById('loading');
+        const resultCard = document.getElementById('resultCard');
+        const previewImage = document.getElementById('previewImage');
+        const predictionResult = document.getElementById('predictionResult');
+        const confidenceText = document.getElementById('confidenceText');
+        const confidenceFill = document.getElementById('confidenceFill');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop events
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleUpload(e.target.files[0]);
+            }
+        });
+
+        // Reset
+        resetBtn.addEventListener('click', () => {
+            resultCard.classList.add('hidden');
+            uploadForm.style.display = 'block';
+            fileInput.value = '';
+        });
+
+        function handleUpload(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file.');
+                return;
+            }
+
+            // Show loading
+            uploadForm.style.display = 'none';
+            loading.classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.add('hidden');
+                if (data.error) {
+                    alert(data.error);
+                    uploadForm.style.display = 'block';
+                } else {
+                    displayResult(data);
+                }
+            })
+            .catch(error => {
+                loading.classList.add('hidden');
+                alert('An error occurred. Please try again.');
+                uploadForm.style.display = 'block';
+                console.error(error);
+            });
+        }
+
+        function displayResult(data) {
+            previewImage.src = data.image_url;
+            predictionResult.textContent = data.prediction.toUpperCase();
+            
+            // Format confidence text
+            confidenceText.textContent = `${data.confidence} Confidence`;
+            
+            // Parse confidence number for bar width
+            const confValue = parseFloat(data.confidence);
+            setTimeout(() => {
+                confidenceFill.style.width = `${confValue}%`;
+            }, 100);
+
+            // Colorize based on prediction
+            if (data.prediction.toLowerCase() === 'cat') {
+                predictionResult.style.color = '#ff6b6b';
+                confidenceFill.style.background = 'linear-gradient(90deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)';
+            } else {
+                predictionResult.style.color = '#4facfe';
+                confidenceFill.style.background = 'linear-gradient(90deg, #4facfe 0%, #00f2fe 100%)';
+            }
+
+            resultCard.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
